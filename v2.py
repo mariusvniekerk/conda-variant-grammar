@@ -7,6 +7,7 @@ import toolz
 from conda_build.utils import ensure_list
 import conda_build.variants as variants
 from conda.models.version import VersionOrder
+from functools import partial
 
 
 def parse_variant(variant_file_str: str, config=None):
@@ -51,17 +52,21 @@ bar:
 """)
 
 
+def _version_order(v, ordering=None):
+    if ordering is not None:
+        return ordering.index(v)
+    else:
+        try:
+            return VersionOrder(v)
+        except:
+            return v
+
+
 def variant_key_add(k, v_left, v_right, ordering=None):
+    """Version summation adder.
 
-    def _version_order(v):
-        if ordering is not None:
-            return ordering.index(v)
-        else:
-            try:
-                return VersionOrder(v)
-            except:
-                return v
-
+    This takes the higher version of the two things.
+    """
 
     v_left, v_right = ensure_list(v1[k]), ensure_list(v2[k])
     out_v = []
@@ -81,9 +86,29 @@ def variant_key_add(k, v_left, v_right, ordering=None):
     return out_v
 
 
+def variant_key_replace(k, v_left, v_right):
+    return v_right
+
+
+def variant_key_set_merge(k, v_left, v_right, ordering=None):
+    """Merges two sets in order"""
+    out_v = set(v_left) & set(v_right)
+    return sorted(out_v, key=partial(_version_order, ordering=ordering))
+
 
 def variant_add(v1: dict, v2: dict):
-    """Adds the two variants together"""
+    """Adds the two variants together.
+
+    Present this assumes mostly flat dictionaries.
+
+    TODO:
+        - Add support for special cases
+            - zip_keys
+            - pin_run_as_build
+            - _ordering
+        - Add support for special sums like replace
+        - Add delete_key support
+    """
     left = set(v1.keys()).difference(v2.keys())
     right = set(v2.keys()).difference(v1.keys())
 
